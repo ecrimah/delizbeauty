@@ -109,6 +109,7 @@ export function AnimatedGrid({
     observer.observe(container);
 
     return () => observer.unobserve(container);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- children as dep would re-run on every parent re-render
   }, [children.length, staggerDelay]);
 
   return (

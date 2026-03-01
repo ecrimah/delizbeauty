@@ -25,6 +25,7 @@ export default function ProductSalesStats({ isOpen, onClose }: { isOpen: boolean
 
     useEffect(() => {
         if (isOpen) fetchStats();
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- run when isOpen or period changes
     }, [isOpen, period]);
 
     const fetchStats = async () => {

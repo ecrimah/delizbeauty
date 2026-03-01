@@ -18,6 +18,7 @@ export default function CustomerDetailsPage() {
         if (customerId) {
             fetchCustomerData();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch when customerId changes
     }, [customerId]);
 
     const fetchCustomerData = async () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
@@ -13,9 +13,7 @@ export default function KnowledgeBasePage() {
   const [showModal, setShowModal] = useState(searchParams.get('new') === '1');
   const [editingArticle, setEditingArticle] = useState<any>(null);
 
-  useEffect(() => { fetchArticles(); }, [search, categoryFilter]);
-
-  async function fetchArticles() {
+  const fetchArticles = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set('search', search);
@@ -24,7 +22,9 @@ export default function KnowledgeBasePage() {
     const data = await res.json();
     setArticles(data.data || []);
     setLoading(false);
-  }
+  }, [search, categoryFilter]);
+
+  useEffect(() => { fetchArticles(); }, [fetchArticles]);
 
   async function deleteArticle(id: string) {
     if (!confirm('Delete this article?')) return;

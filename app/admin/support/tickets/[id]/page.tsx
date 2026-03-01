@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, use } from 'react';
+import { useState, useEffect, useCallback, useRef, use } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import MarkdownMessage from '@/components/MarkdownMessage';
@@ -19,9 +19,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
   const [conversation, setConversation] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { fetchTicket(); }, [id]);
-
-  async function fetchTicket() {
+  const fetchTicket = useCallback(async () => {
     setLoading(true);
     const [ticketRes, msgsRes] = await Promise.all([
       supabase.from('support_tickets').select('*').eq('id', id).single(),
@@ -35,7 +33,9 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
       setConversation(conv);
     }
     setLoading(false);
-  }
+  }, [id]);
+
+  useEffect(() => { fetchTicket(); }, [fetchTicket]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

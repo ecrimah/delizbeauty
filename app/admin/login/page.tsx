@@ -22,6 +22,10 @@ export default function AdminLoginPage() {
       setError('Your role has been disabled by the administrator. Contact your Super Admin for access.');
     } else if (errorParam === 'unauthorized') {
       setError('You do not have permission to access the admin panel.');
+    } else if (errorParam === 'no_profile') {
+      setError('No admin profile found. From project root run: node scripts/create-admin.mjs');
+    } else if (errorParam === 'config') {
+      setError('Server misconfiguration: SUPABASE_SERVICE_ROLE_KEY is not set in .env.local. Add it from Supabase Dashboard → Settings → API.');
     }
   }, [searchParams]);
 
@@ -47,15 +51,22 @@ export default function AdminLoginPage() {
       if (error) throw error;
 
       if (data.session) {
-        // Set auth cookie so middleware can verify the session server-side
-        document.cookie = `sb-access-token=${data.session.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax; Secure`;
-        document.cookie = `sb-refresh-token=${data.session.refresh_token}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax; Secure`;
+        // Set auth cookie so middleware can verify the session server-side.
+        // Omit Secure on HTTP (e.g. localhost) so the cookie is sent and middleware can validate.
+        const secure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
+        document.cookie = `sb-access-token=${data.session.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax${secure}`;
+        document.cookie = `sb-refresh-token=${data.session.refresh_token}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax${secure}`;
 
-        router.push('/admin');
-        router.refresh();
+        // Full-page redirect so the first request to /admin includes the cookie (avoids RSC fetch race).
+        window.location.href = '/admin';
       }
     } catch (err: any) {
-      setError(err.message || 'Login failed');
+      const msg = err?.message || 'Login failed';
+      if (msg.toLowerCase().includes('invalid login credentials') || msg.toLowerCase().includes('invalid_credentials')) {
+        setError('Invalid email or password. Use the admin account from your .env.local (ADMIN_EMAIL / ADMIN_PASSWORD) or run: node scripts/create-admin.mjs');
+      } else {
+        setError(msg);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -95,7 +106,7 @@ export default function AdminLoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-12 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                  placeholder="admin@elegancemart.com"
+                  placeholder="admin@delizbeauty.com"
                   required
                 />
               </div>

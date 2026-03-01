@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, useCallback, use } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import MarkdownMessage from '@/components/MarkdownMessage';
@@ -15,11 +15,7 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
   const [addingMemory, setAddingMemory] = useState(false);
   const [creatingTicket, setCreatingTicket] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, [id]);
-
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     const { data: conv } = await supabase.from('chat_conversations').select('*').eq('id', id).single();
     setConversation(conv);
@@ -32,7 +28,11 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
       setMemories(memData || []);
     }
     setLoading(false);
-  }
+  }, [id]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   async function addMemoryNote() {
     if (!newMemory.trim()) return;

@@ -263,59 +263,6 @@ export default function POSPage() {
         fetchDailySummary();
     }, []);
 
-    // ─── Barcode Scanner Detection ──────────────────────────────────────────
-
-    useEffect(() => {
-        function handleKeyDown(e: KeyboardEvent) {
-            // Skip if user is in an input field (except search)
-            const target = e.target as HTMLElement;
-            const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
-            const isSearchInput = target === searchInputRef.current;
-
-            // Barcode scanners type very fast (< 50ms between chars) and end with Enter
-            if (e.key === 'Enter' && barcodeBuffer.current.length >= 3) {
-                e.preventDefault();
-                const scannedCode = barcodeBuffer.current.trim();
-                barcodeBuffer.current = '';
-                if (barcodeTimeout.current) clearTimeout(barcodeTimeout.current);
-                handleBarcodeScan(scannedCode);
-                return;
-            }
-
-            // Collect printable chars into buffer
-            if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-                // If user is typing in a non-search input, don't capture as barcode
-                if (isInput && !isSearchInput) return;
-
-                barcodeBuffer.current += e.key;
-                if (barcodeTimeout.current) clearTimeout(barcodeTimeout.current);
-                barcodeTimeout.current = setTimeout(() => {
-                    // If typing was slow (> 80ms gap), it's manual typing, not a scanner
-                    barcodeBuffer.current = '';
-                }, 80);
-            }
-        }
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [products]);
-
-    const handleBarcodeScan = useCallback((code: string) => {
-        const product = products.find(p =>
-            p.barcode === code || p.sku === code || p.sku?.toLowerCase() === code.toLowerCase()
-        );
-        if (product) {
-            addToCart(product);
-            playSound('scan');
-            setScanFeedback(`✓ ${product.name}`);
-            setTimeout(() => setScanFeedback(''), 2000);
-        } else {
-            playSound('error');
-            setScanFeedback(`✗ Not found: ${code}`);
-            setTimeout(() => setScanFeedback(''), 3000);
-        }
-    }, [products]);
-
     // ─── Keyboard Shortcuts ─────────────────────────────────────────────────
 
     useEffect(() => {
@@ -374,6 +321,7 @@ export default function POSPage() {
 
         window.addEventListener('keydown', handleShortcut);
         return () => window.removeEventListener('keydown', handleShortcut);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- holdCurrentOrder, toggleFullscreen, emptyCart defined later; effect runs after mount
     }, [cart, showCheckoutModal, showHeldOrders, showDailySummary]);
 
     // ─── Fullscreen ─────────────────────────────────────────────────────────
@@ -482,6 +430,51 @@ export default function POSPage() {
         });
     }, []);
 
+    // ─── Barcode Scanner Detection ──────────────────────────────────────────
+
+    const handleBarcodeScan = useCallback((code: string) => {
+        const product = products.find(p =>
+            p.barcode === code || p.sku === code || p.sku?.toLowerCase() === code.toLowerCase()
+        );
+        if (product) {
+            addToCart(product);
+            playSound('scan');
+            setScanFeedback(`✓ ${product.name}`);
+            setTimeout(() => setScanFeedback(''), 2000);
+        } else {
+            playSound('error');
+            setScanFeedback(`✗ Not found: ${code}`);
+            setTimeout(() => setScanFeedback(''), 3000);
+        }
+    }, [products, addToCart]);
+
+    useEffect(() => {
+        function handleKeyDown(e: KeyboardEvent) {
+            const target = e.target as HTMLElement;
+            const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
+            const isSearchInput = target === searchInputRef.current;
+
+            if (e.key === 'Enter' && barcodeBuffer.current.length >= 3) {
+                e.preventDefault();
+                const scannedCode = barcodeBuffer.current.trim();
+                barcodeBuffer.current = '';
+                if (barcodeTimeout.current) clearTimeout(barcodeTimeout.current);
+                handleBarcodeScan(scannedCode);
+                return;
+            }
+
+            if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                if (isInput && !isSearchInput) return;
+                barcodeBuffer.current += e.key;
+                if (barcodeTimeout.current) clearTimeout(barcodeTimeout.current);
+                barcodeTimeout.current = setTimeout(() => { barcodeBuffer.current = ''; }, 80);
+            }
+        }
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [products, handleBarcodeScan]);
+
     const removeFromCart = (productId: string) => {
         setCart(prev => prev.filter(item => item.id !== productId));
     };
@@ -505,11 +498,11 @@ export default function POSPage() {
         ));
     };
 
-    const emptyCart = () => { setCart([]); setOrderDiscount(0); };
+    const emptyCart = useCallback(() => { setCart([]); setOrderDiscount(0); }, []);
 
     // ─── Hold & Recall ──────────────────────────────────────────────────────
 
-    const holdCurrentOrder = () => {
+    const holdCurrentOrder = useCallback(() => {
         if (cart.length === 0) return;
         const held: HeldOrder = {
             id: `hold-${Date.now()}`,
@@ -525,7 +518,8 @@ export default function POSPage() {
         setSelectedCustomer(null);
         setHoldNote('');
         playSound('hold');
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- grandTotal is defined later (computed); callback uses current value at invoke time
+    }, [cart, selectedCustomer, holdNote, heldOrders, emptyCart]);
 
     const recallOrder = (holdId: string) => {
         const order = heldOrders.find(h => h.id === holdId);

@@ -25,77 +25,88 @@ export default function AdminLayout({
 
   useEffect(() => {
     async function checkAuth() {
-      const { data: { session } } = await supabase.auth.getSession();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
 
-      if (pathname === '/admin/login') {
+        if (pathname === '/admin/login') {
+          setIsLoading(false);
+          return;
+        }
+
+        if (!session) {
+          router.push('/admin/login');
+          return;
+        }
+
+        const accessToken = session?.access_token;
+        if (!accessToken || typeof accessToken !== 'string') {
+          router.push('/admin/login');
+          return;
+        }
+
+        const secure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
+        try {
+          document.cookie = `sb-access-token=${accessToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax${secure}`;
+        } catch (_) {}
+
+        const meRes = await fetch('/api/admin/me', {
+          credentials: 'include',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        if (!meRes.ok) {
+          let errBody: { error?: string } = {};
+          try {
+            const text = await meRes.text();
+            if (text) errBody = JSON.parse(text);
+          } catch (_) {}
+          if (meRes.status === 503) router.push('/admin/login?error=config');
+          else if (meRes.status === 404) router.push('/admin/login?error=no_profile');
+          else if (meRes.status === 403 && errBody?.error === 'Role disabled') router.push('/admin/login?error=role_disabled');
+          else router.push('/admin/login');
+          return;
+        }
+
+        let profileData: { role?: string } | null = null;
+        let permissions: Record<string, boolean> = {};
+        try {
+          const json = await meRes.json();
+          profileData = json?.profile ?? null;
+          permissions = (json?.permissions && typeof json.permissions === 'object') ? json.permissions : {};
+        } catch (_) {
+          router.push('/admin/login');
+          return;
+        }
+        const role = profileData?.role != null ? String(profileData.role) : '';
+        if (role !== 'admin' && role !== 'staff') {
+          document.cookie = `sb-access-token=; path=/; max-age=0; SameSite=Lax${secure}`;
+          await supabase.auth.signOut();
+          router.push('/admin/login?error=unauthorized');
+          return;
+        }
+
+        setUser(session.user);
+        setUserRole(role);
+        if (Object.keys(permissions).length > 0) setRolePermissions(permissions);
+        setIsAuthenticated(true);
+      } catch {
+        router.push('/admin/login');
+      } finally {
         setIsLoading(false);
-        return;
       }
-
-      if (!session) {
-        router.push('/admin/login');
-        return;
-      }
-
-      // Ensure auth cookie is set (in case user already had a session from before)
-      document.cookie = `sb-access-token=${session.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax; Secure`;
-
-      // Check user role from profiles table
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
-
-      if (profileError || !profile) {
-        console.error('Failed to fetch user profile');
-        router.push('/admin/login');
-        return;
-      }
-
-      // Only allow admin and staff roles
-      if (profile.role !== 'admin' && profile.role !== 'staff') {
-        console.warn('User does not have admin/staff role');
-        document.cookie = 'sb-access-token=; path=/; max-age=0; SameSite=Lax; Secure';
-        await supabase.auth.signOut();
-        router.push('/admin/login?error=unauthorized');
-        return;
-      }
-
-      // Fetch role permissions
-      const { data: roleConfig } = await supabase
-        .from('roles')
-        .select('permissions, enabled')
-        .eq('id', profile.role)
-        .single();
-
-      if (roleConfig && !roleConfig.enabled) {
-        document.cookie = 'sb-access-token=; path=/; max-age=0; SameSite=Lax; Secure';
-        await supabase.auth.signOut();
-        router.push('/admin/login?error=role_disabled');
-        return;
-      }
-
-      if (roleConfig?.permissions) {
-        setRolePermissions(roleConfig.permissions);
-      }
-
-      setUser(session.user);
-      setUserRole(profile.role);
-      setIsAuthenticated(true);
-      setIsLoading(false);
     }
 
     checkAuth();
 
     // Keep cookie in sync when session refreshes
+    const secure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'TOKEN_REFRESHED' && session) {
-        document.cookie = `sb-access-token=${session.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax; Secure`;
+        document.cookie = `sb-access-token=${session.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax${secure}`;
       }
       if (event === 'SIGNED_OUT') {
-        document.cookie = 'sb-access-token=; path=/; max-age=0; SameSite=Lax; Secure';
-        document.cookie = 'sb-refresh-token=; path=/; max-age=0; SameSite=Lax; Secure';
+        document.cookie = `sb-access-token=; path=/; max-age=0; SameSite=Lax${secure}`;
+        document.cookie = `sb-refresh-token=; path=/; max-age=0; SameSite=Lax${secure}`;
       }
     });
 
@@ -151,9 +162,9 @@ export default function AdminLayout({
   }, []);
 
   const handleLogout = async () => {
-    // Clear auth cookies set during login
-    document.cookie = 'sb-access-token=; path=/; max-age=0; SameSite=Lax; Secure';
-    document.cookie = 'sb-refresh-token=; path=/; max-age=0; SameSite=Lax; Secure';
+    const secure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `sb-access-token=; path=/; max-age=0; SameSite=Lax${secure}`;
+    document.cookie = `sb-refresh-token=; path=/; max-age=0; SameSite=Lax${secure}`;
     await supabase.auth.signOut();
     router.push('/admin/login');
   };

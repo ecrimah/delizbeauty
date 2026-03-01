@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 
@@ -11,15 +11,15 @@ export default function SupportAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(30);
 
-  useEffect(() => { fetchAnalytics(); }, [days]);
-
-  async function fetchAnalytics() {
+  const fetchAnalytics = useCallback(async () => {
     setLoading(true);
     const res = await fetch(`/api/support/analytics?days=${days}`);
     const json = await res.json();
     setData(json);
     setLoading(false);
-  }
+  }, [days]);
+
+  useEffect(() => { fetchAnalytics(); }, [fetchAnalytics]);
 
   if (loading) {
     return (

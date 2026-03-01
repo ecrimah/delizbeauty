@@ -31,6 +31,7 @@ export default function ProductsPage() {
   useEffect(() => {
     fetchProducts();
     fetchCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run when sortBy changes
   }, [sortBy]);
 
   const fetchCategories = async () => {

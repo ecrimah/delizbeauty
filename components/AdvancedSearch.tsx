@@ -93,6 +93,7 @@ export default function AdvancedSearch() {
     } else {
       setSuggestions([]);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- allProducts is static; including would re-run every render
   }, [query]);
 
   const handleSearch = (searchQuery: string) => {

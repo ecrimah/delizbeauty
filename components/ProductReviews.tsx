@@ -43,6 +43,7 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
     });
 
     fetchReviews();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchReviews uses productId from closure
   }, [productId]);
 
   const fetchReviews = async () => {

@@ -46,6 +46,7 @@ export default function OrderDetailClient({ orderId }: OrderDetailClientProps) {
 
   useEffect(() => {
     fetchOrderDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run when orderId changes
   }, [orderId]);
 
   const fetchOrderDetails = async () => {

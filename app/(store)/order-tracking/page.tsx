@@ -1,14 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 function OrderTrackingContent() {
   const searchParams = useSearchParams();
   const urlOrderNumber = searchParams.get('order') || '';
-  
+
   const [orderNumber, setOrderNumber] = useState(urlOrderNumber);
   const [email, setEmail] = useState('');
   const [isTracking, setIsTracking] = useState(false);
@@ -18,17 +18,10 @@ function OrderTrackingContent() {
 
   // Auto-track if order number AND email are in the URL
   const urlEmail = searchParams.get('email') || '';
-  
-  useEffect(() => {
-    if (urlOrderNumber && urlEmail) {
-      setEmail(urlEmail);
-      fetchOrder(urlOrderNumber, urlEmail);
-    }
-  }, [urlOrderNumber, urlEmail]);
 
-  const fetchOrder = async (orderNum: string, verifyEmail?: string) => {
+  const fetchOrder = useCallback(async (orderNum: string, verifyEmail?: string) => {
     const emailToVerify = verifyEmail || email;
-    
+
     // SECURITY: Email is required for order tracking to prevent unauthorized access
     if (!emailToVerify) {
       setError('Please enter your email address to verify your identity.');
@@ -66,7 +59,14 @@ function OrderTrackingContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [email]);
+
+  useEffect(() => {
+    if (urlOrderNumber && urlEmail) {
+      setEmail(urlEmail);
+      fetchOrder(urlOrderNumber, urlEmail);
+    }
+  }, [urlOrderNumber, urlEmail, fetchOrder]);
 
   const handleTrack = (e: React.FormEvent) => {
     e.preventDefault();

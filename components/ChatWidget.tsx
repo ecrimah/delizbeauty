@@ -286,7 +286,7 @@ export default function ChatWidget() {
     } finally {
       setLoading(false);
     }
-  }, [input, loading, messages, open, pathname]);
+  }, [input, loading, messages, open, pathname, cart, clearCart]);
 
   const handleAddToCart = useCallback((product: ChatProduct) => {
     const item: CartItem = {
@@ -419,7 +419,7 @@ export default function ChatWidget() {
       setLoading(false);
       setVoiceProcessing(null);
     }
-  }, [messages, open, pathname]);
+  }, [messages, open, pathname, cart, clearCart]);
 
   sendVoiceRef.current = sendVoiceMessage;
 
@@ -489,14 +489,6 @@ export default function ChatWidget() {
   const [feedbackText, setFeedbackText] = useState('');
   const [feedbackSent, setFeedbackSent] = useState(false);
 
-  const clearChat = useCallback(() => {
-    if (messages.length > 3 && !feedbackSent) {
-      setShowFeedback(true);
-      return;
-    }
-    performClearChat();
-  }, [messages.length, feedbackSent]);
-
   const performClearChat = useCallback(() => {
     const initial: ChatMessage[] = [{
       role: 'assistant',
@@ -513,6 +505,20 @@ export default function ChatWidget() {
     setFeedbackSent(false);
   }, []);
 
+  const performClearChatRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    performClearChatRef.current = performClearChat;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally run every commit so ref stays current; adding performClearChat to deps can contribute to TDZ in some bundles
+  }, []);
+
+  const clearChat = useCallback(() => {
+    if (messages.length > 3 && !feedbackSent) {
+      setShowFeedback(true);
+      return;
+    }
+    performClearChatRef.current();
+  }, [messages.length, feedbackSent]);
+
   const submitFeedback = useCallback(async () => {
     if (feedbackRating === 0) return;
     try {
@@ -528,8 +534,8 @@ export default function ChatWidget() {
     } catch {}
     setFeedbackSent(true);
     setShowFeedback(false);
-    performClearChat();
-  }, [feedbackRating, feedbackText, performClearChat]);
+    performClearChatRef.current();
+  }, [feedbackRating, feedbackText]);
 
   if (!mounted) return null;
 
@@ -661,7 +667,7 @@ export default function ChatWidget() {
                   className="px-4 py-2 text-sm font-medium bg-gray-700 text-white rounded-lg hover:bg-gray-800 disabled:opacity-40 transition-colors active:scale-95">
                   Submit &amp; Clear
                 </button>
-                <button type="button" onClick={performClearChat}
+                <button type="button" onClick={() => performClearChatRef.current()}
                   className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">
                   Skip
                 </button>
